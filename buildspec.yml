@@ -1,0 +1,32 @@
+# taskviewer/buildspec.yml
+version: 0.2
+
+env:
+  variables:
+    # CodeBuildの「環境変数」で上書きできる。ここはデフォルト値の例。
+    S3_BUCKET_NAME: cf-s3-spa-tokyo-202511132007-sitebucket-ru0q8kf8q4w6
+    DISTRIBUTION_ID: E2987HK3TFQJWC
+  # npmキャッシュで速くする
+  cache:
+    paths:
+      - /root/.npm/**/*
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - npm ci
+  build:
+    commands:
+      - npm run build
+  post_build:
+    commands:
+      - aws s3 sync dist/ "s3://$S3_BUCKET_NAME/" --delete --exclude "index.html" --cache-control "public,max-age=31536000,immutable"
+      - aws s3 cp dist/index.html "s3://$S3_BUCKET_NAME/index.html" --cache-control "no-cache"
+      - aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/index.html"
+artifacts:
+  files:
+    - '**/*'
+  base-directory: dist
+  discard-paths: yes
