@@ -22,7 +22,6 @@ phases:
       - npm run build
   post_build:
     commands:
-      # --- 事前チェック ---
       - echo "Region: ${AWS_DEFAULT_REGION:-not-set}"
       - 'test -n "${S3_BUCKET_NAME}" || { echo "[FATAL] S3_BUCKET_NAME is empty"; exit 2; }'
       - echo "Bucket: ${S3_BUCKET_NAME}"
@@ -30,11 +29,9 @@ phases:
       - 'aws sts get-caller-identity || { echo "[FATAL] no AWS identity"; exit 4; }'
       - 'aws s3 ls "s3://${S3_BUCKET_NAME}" --region ap-northeast-1 || { echo "[FATAL] cannot access bucket"; exit 5; }'
 
-      # --- デプロイ本体 ---
       - aws s3 sync dist/ "s3://${S3_BUCKET_NAME}/" --delete --exclude "index.html" --cache-control "public,max-age=31536000,immutable" --region ap-northeast-1
       - aws s3 cp dist/index.html "s3://${S3_BUCKET_NAME}/index.html" --cache-control "no-cache" --region ap-northeast-1
 
-      # --- 任意: 反映を早める ---
       - 'if [ -n "${DISTRIBUTION_ID}" ]; then aws cloudfront create-invalidation --distribution-id "${DISTRIBUTION_ID}" --paths "/index.html"; else echo "DISTRIBUTION_ID empty: skipping invalidation"; fi'
 artifacts:
   files:
