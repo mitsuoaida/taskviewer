@@ -3,8 +3,9 @@ version: 0.2
 
 env:
   variables:
-    S3_BUCKET_NAME: cf-s3-spa-tokyo-202511132007-sitebucket-ru0q8kf8q4w6
-    DISTRIBUTION_ID: E2987HK3TFQJWC
+    # Fill in these environment variables in the CodeBuild console
+    S3_BUCKET_NAME: ""
+    DISTRIBUTION_ID: ""
 
 phases:
   install:
