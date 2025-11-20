@@ -13,6 +13,7 @@ phases:
       nodejs: 22
     commands:
       - echo "Node $(node -v); npm $(npm -v)"
+      - cd frontend
   pre_build:
     commands:
       - npm ci
