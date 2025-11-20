@@ -25,7 +25,6 @@ phases:
       - echo "Region ${AWS_DEFAULT_REGION:-not-set}"
       - test -n "${S3_BUCKET_NAME}" || { echo "[FATAL] S3_BUCKET_NAME is empty"; exit 2; }
       - echo "Bucket ${S3_BUCKET_NAME}"
-      - cd frontend
       - ls -la dist || { echo "[FATAL] dist/ not found (build failed?)"; exit 3; }
       - aws sts get-caller-identity || { echo "[FATAL] no AWS identity"; exit 4; }
       - aws s3 ls "s3://${S3_BUCKET_NAME}" --region ap-northeast-1 || { echo "[FATAL] cannot access bucket"; exit 5; }
