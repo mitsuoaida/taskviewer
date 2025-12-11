@@ -1,0 +1,48 @@
+# taskviewer/buildspec.yml
+version: 0.2
+
+env:
+  variables:
+    # Fill in these environment variables in the CodeBuild console
+    S3_BUCKET_NAME: ""
+    DISTRIBUTION_ID: ""
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - echo "Node $(node -v); npm $(npm -v)"
+      - cd frontend
+  pre_build:
+    commands:
+      - npm ci
+  build:
+    commands:
+      - npm run build
+  post_build:
+    commands:
+      - echo "Region ${AWS_DEFAULT_REGION:-not-set}"
+      - test -n "${S3_BUCKET_NAME}" || { echo "[FATAL] S3_BUCKET_NAME is empty"; exit 2; }
+      - echo "Bucket ${S3_BUCKET_NAME}"
+      - ls -la dist || { echo "[FATAL] dist/ not found (build failed?)"; exit 3; }
+      - aws sts get-caller-identity || { echo "[FATAL] no AWS identity"; exit 4; }
+      - aws s3 ls "s3://${S3_BUCKET_NAME}" --region ap-northeast-1 || { echo "[FATAL] cannot access bucket"; exit 5; }
+      - aws s3 sync dist/ "s3://${S3_BUCKET_NAME}/" --delete --exclude "index.html" --cache-control "public,max-age=31536000,immutable" --region ap-northeast-1
+      - aws s3 cp dist/index.html "s3://${S3_BUCKET_NAME}/index.html" --cache-control "no-cache" --region ap-northeast-1
+      - |
+        if [ -n "${DISTRIBUTION_ID}" ]; then
+          aws cloudfront create-invalidation --distribution-id "${DISTRIBUTION_ID}" --paths "/index.html"
+        else
+          echo "DISTRIBUTION_ID empty: skipping invalidation"
+        fi
+
+artifacts:
+  files:
+    - "**/*"
+  base-directory: dist
+  discard-paths: yes
+
+cache:
+  paths:
+    - /root/.npm/**/*

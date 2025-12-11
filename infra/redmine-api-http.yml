@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: HTTP API + Lambda for Redmine "updated today" issues
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: taskviewer-redmine-api
+    Description: Prefix for resource names
+
+  CodeS3Bucket:
+    Type: String
+    Description: S3 bucket that stores Lambda zip (artifact)
+
+  CodeS3Key:
+    Type: String
+    Description: S3 key (path) of Lambda zip file, e.g. backend/redmine-api/lambda.zip
+
+  RedmineBaseUrl:
+    Type: String
+    Description: Base URL of Redmine (e.g. https://redmine.example.com)
+
+  RedmineApiKey:
+    Type: String
+    NoEcho: true
+    Description: Redmine API key
+
+  BasicUser:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: BASIC auth username (empty if not required)
+
+  BasicPassword:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: BASIC auth password (empty if not required)
+
+  StageName:
+    Type: String
+    Default: prod
+    Description: HTTP API stage name (e.g. prod)
+
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # CloudWatch Logs 用のマネージドポリシー
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      # 必要に応じてVPCアクセスとか追加
+
+  RedmineLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-function"
+      Runtime: nodejs22.x
+      Handler: index.handler  # zipの中の index.js に exports.handler がある想定
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        S3Bucket: !Ref CodeS3Bucket
+        S3Key: !Ref CodeS3Key
+      Timeout: 20
+      MemorySize: 256
+      Environment:
+        Variables:
+          REDMINE_BASE_URL: !Ref RedmineBaseUrl
+          REDMINE_API_KEY: !Ref RedmineApiKey
+          BASIC_USER: !Ref BasicUser
+          BASIC_PASSWORD: !Ref BasicPassword
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "${ProjectName}-http-api"
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"          # 本番は CloudFrontドメインだけに絞ってもよし
+        AllowMethods:
+          - GET
+          - OPTIONS
+        AllowHeaders:
+          - "*"
+
+  LambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      PayloadFormatVersion: "2.0"
+      IntegrationUri: !GetAtt RedmineLambda.Arn
+
+  IssuesRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /issues-updated-today
+      Target: !Sub "integrations/${LambdaIntegration}"
+
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: !Ref StageName
+      AutoDeploy: true
+
+  LambdaPermissionForHttpApi:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RedmineLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*/issues-updated-today"
+
+Outputs:
+  HttpApiEndpoint:
+    Description: Base URL of HTTP API stage
+    Value: !Sub "${HttpApi.ApiEndpoint}/${StageName}"
+
+  IssuesUpdatedTodayUrl:
+    Description: Full URL of GET /issues-updated-today
+    Value: !Sub "${HttpApi.ApiEndpoint}/${StageName}/issues-updated-today"

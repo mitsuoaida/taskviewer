@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront + private S3 (Tokyo ap-northeast-1) for SPA with OAC.
+
+Parameters:
+  BucketNamePrefix:
+    Type: String
+    Default: spa-app
+    Description: Prefix for S3 bucket (a random suffix will be added to ensure uniqueness).
+
+Mappings:
+  RegionMap:
+    ap-northeast-1:
+      S3RegionalDomainSuffix: s3.ap-northeast-1.amazonaws.com
+
+Resources:
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced   # ACL無効
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "oac-${AWS::StackName}"
+        Description: OAC for CloudFront to access private S3 bucket.
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+      
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    DependsOn:
+      - OriginAccessControl
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2
+        DefaultRootObject: index.html
+        Comment: !Sub "SPA via CloudFront + S3 (private) - ${AWS::StackName}"
+        Origins:
+          - Id: s3-origin
+            DomainName: !Sub "${SiteBucket}.s3.${AWS::Region}.amazonaws.com"
+            OriginAccessControlId: !Ref OriginAccessControl
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          TargetOriginId: s3-origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          # デフォルトはアセット向け（長期キャッシュの方針）
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6   # Managed-CachingOptimized
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # Managed-SimpleCORS（必要なら変更）
+        CacheBehaviors:
+          # index.html は短期/実質no-cache
+          - PathPattern: 'index.html'
+            TargetOriginId: s3-origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad   # Managed-CachingDisabled
+        CustomErrorResponses:
+          # SPAルーティング（403/404 -> /index.html）
+          - ErrorCode: 403
+            ResponsePagePath: /index.html
+            ResponseCode: 200
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ResponsePagePath: /index.html
+            ResponseCode: 200
+            ErrorCachingMinTTL: 0
+        PriceClass: PriceClass_200   # コスト最小なら PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          # 独自ドメイン利用時は下記を使う（ACM us-east-1 必須）
+          # AcmCertificateArn: arn:aws:acm:us-east-1:XXXXXXXXXXXX:certificate/...
+          # MinimumProtocolVersion: TLSv1.2_2021
+          # SslSupportMethod: sni-only
+        # Aliases:
+        #   - app.example.com
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontReadViaOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${SiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+Outputs:
+  BucketName:
+    Value: !Ref SiteBucket
+  DistributionId:
+    Value: !Ref CloudFrontDistribution
+  DistributionDomainName:
+    Value: !GetAtt CloudFrontDistribution.DomainName
+
