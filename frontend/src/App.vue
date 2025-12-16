@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 onMounted(async () => {
   try {
-    const res = await fetch(`${API_BASE}/api/issues?user_id=30`);
+    const res = await fetch(`${API_BASE}?user_id=30`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     issues.value = await res.json();
   } catch (e) {
