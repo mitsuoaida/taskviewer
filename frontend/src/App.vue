@@ -6,6 +6,32 @@ const error = ref("");
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
+/**
+ * プロジェクト名から一意の背景色を生成
+ * HSL色空間を使用して視認性の良い色を生成
+ */
+const getProjectColor = (projectName) => {
+  if (!projectName) return 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf2 100%)';
+  
+  // プロジェクト名からハッシュ値を生成
+  let hash = 0;
+  for (let i = 0; i < projectName.length; i++) {
+    hash = projectName.charCodeAt(i) + ((hash << 5) - hash);
+    hash = hash & hash; // 32bit整数に変換
+  }
+  
+  // ハッシュ値から色相(Hue)を生成 (0-360)
+  const hue = Math.abs(hash % 360);
+  
+  // 彩度と明度を固定して読みやすい色に
+  // 薄めの背景色用に彩度を低め、明度を高めに設定
+  const saturation = 65;
+  const lightness1 = 92;
+  const lightness2 = 85;
+  
+  return `linear-gradient(135deg, hsl(${hue}, ${saturation}%, ${lightness1}%) 0%, hsl(${hue}, ${saturation}%, ${lightness2}%) 100%)`;
+};
+
 onMounted(async () => {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -36,7 +62,10 @@ onMounted(async () => {
       </div>
       
       <div v-else class="issues-container">
-        <div class="issue-card" v-for="i in issues" :key="i.id">
+        <div class="issue-card" 
+             v-for="i in issues" 
+             :key="i.id"
+             :style="{ background: getProjectColor(i.project_name) }">
           <div class="issue-header">
             <span class="issue-id">#{{ i.id }}</span>
           </div>
@@ -113,7 +142,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
-}
+}/* background色は動的に設定されます */
 
 .issue-card {
   background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf2 100%);
