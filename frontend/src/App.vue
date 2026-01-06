@@ -40,6 +40,7 @@ onMounted(async () => {
           <div class="issue-header">
             <span class="issue-id">#{{ i.id }}</span>
           </div>
+          <div class="project-name">{{ i.project_name }}</div>
           <a :href="i.url" target="_blank" class="issue-link">
             {{ i.subject }}
           </a>
@@ -142,6 +143,14 @@ onMounted(async () => {
   font-weight: 600;
   font-size: 0.9rem;
   letter-spacing: 0.5px;
+}
+
+.project-name {
+  font-weight: 700;
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  letter-spacing: 0.3px;
 }
 
 .issue-link {
