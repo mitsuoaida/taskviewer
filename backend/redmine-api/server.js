@@ -3,11 +3,34 @@ import 'dotenv/config';
 import express from "express";
 import cors from "cors";
 import { fetchIssuesUpdatedTodayByUser } from "./src/fetchUpdatedToday.js";
+import { fetchUsers } from "./src/fetchUsers.js";
 
 const app = express();
 app.use(cors()); // Vueの開発サーバからアクセスできるようにする
 
 app.get("/api/issues", async (req, res) => {
+  try {
+    const userId = Number(req.query.user_id);
+    const issues = await fetchIssuesUpdatedTodayByUser(userId, undefined);
+    res.json(issues);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/users", async (req, res) => {
+  try {
+    console.log("Fetching users");
+    const users = await fetchUsers();
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/", async (req, res) => {
   try {
     const userId = Number(req.query.user_id);
     const issues = await fetchIssuesUpdatedTodayByUser(userId, undefined);

@@ -41,8 +41,8 @@ backendで使う各種設定値を登録してください
 backend/.templete.envに必要な値を列挙しています
 
 ### ローカルでのLambdaロジック/Expressによる単体テスト方法
-backend 以下に.jsのテストファイルを作成する（例：local-test.js）
-backend 直下で、node local-test.js のコマンドを実行すると単体テストができる
+backend - redmine-api以下に.jsのテストファイルを作成する（例：local-test.js）
+backend - redmine-api直下で、node local-test.js のコマンドを実行すると単体テストができる
 dotenv/configをimportすれば.envのファイルを取得してくれる
 
 ### ローカルでのVue.jsとの結合テスト方法

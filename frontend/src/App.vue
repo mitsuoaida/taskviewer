@@ -3,6 +3,8 @@ import { ref, onMounted } from "vue";
 
 const issues = ref([]);
 const error = ref("");
+const users = ref([]);
+const selectedUserId = ref(null);
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
@@ -32,16 +34,49 @@ const getProjectColor = (projectName) => {
   return `linear-gradient(135deg, hsl(${hue}, ${saturation}%, ${lightness1}%) 0%, hsl(${hue}, ${saturation}%, ${lightness2}%) 100%)`;
 };
 
-onMounted(async () => {
+/**
+ * ユーザー一覧を取得
+ */
+const fetchUsers = async () => {
   try {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('user_id') || '30';
+    const res = await fetch(`${API_BASE}/users`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    users.value = await res.json();
+  } catch (e) {
+    console.error("ユーザー取得エラー:", e.message);
+  }
+};
+
+/**
+ * チケットを取得
+ */
+const fetchIssues = async (userId) => {
+  if (!userId) {
+    issues.value = [];
+    return;
+  }
+
+  try {
     const res = await fetch(`${API_BASE}?user_id=${userId}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     issues.value = await res.json();
+    error.value = "";
   } catch (e) {
     error.value = e.message;
+    issues.value = [];
   }
+};
+
+/**
+ * ユーザー選択時の処理
+ */
+const onUserChange = () => {
+  fetchIssues(selectedUserId.value);
+};
+
+onMounted(async () => {
+  // 初回アクセス時にユーザー一覧を取得
+  await fetchUsers();
 });
 </script>
 
@@ -50,11 +85,35 @@ onMounted(async () => {
     <div class="content-wrapper">
       <header class="app-header">
         <h1 class="title">📋 今日更新されたチケット一覧</h1>
+        
+        <!-- ユーザー選択プルダウン -->
+        <div class="user-select-container">
+          <label for="user-select" class="user-select-label">👤 ユーザー選択:</label>
+          <select 
+            id="user-select" 
+            v-model="selectedUserId" 
+            @change="onUserChange"
+            class="user-select"
+          >
+            <option :value="null">-- ユーザーを選択してください --</option>
+            <option 
+              v-for="user in users" 
+              :key="user.id" 
+              :value="user.id"
+            >
+              {{ user.lastname }} {{ user.firstname }} ({{ user.login }})
+            </option>
+          </select>
+        </div>
       </header>
       
       <div v-if="error" class="error-message">
         <span class="error-icon">⚠️</span>
         <span>{{ error }}</span>
+      </div>
+      
+      <div v-else-if="!selectedUserId" class="placeholder">
+        ユーザーを選択してください
       </div>
       
       <div v-else-if="issues.length === 0" class="loading">
@@ -109,9 +168,55 @@ onMounted(async () => {
 .title {
   font-size: 2rem;
   color: #5a4d8f;
-  margin: 0;
+  margin: 0 0 1.5rem 0;
   font-weight: 700;
   letter-spacing: 0.5px;
+}
+
+.user-select-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.user-select-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #5a4d8f;
+}
+
+.user-select {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  background: white;
+  color: #2d3748;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 300px;
+  font-weight: 500;
+}
+
+.user-select:hover {
+  border-color: #764ba2;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.user-select:focus {
+  outline: none;
+  border-color: #764ba2;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.placeholder {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.2rem;
+  color: #667eea;
+  font-weight: 600;
 }
 
 .error-message {
@@ -206,6 +311,15 @@ onMounted(async () => {
   .title {
     font-size: 1.6rem;
   }
+
+  .user-select-container {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .user-select {
+    min-width: 100%;
+  }
   
   .issues-container {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -226,6 +340,16 @@ onMounted(async () => {
   
   .title {
     font-size: 1.3rem;
+  }
+
+  .user-select-label {
+    font-size: 1rem;
+  }
+
+  .user-select {
+    min-width: 100%;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
   }
   
   .issues-container {

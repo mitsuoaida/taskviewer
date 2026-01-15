@@ -1,0 +1,58 @@
+# backend/redmine-api/buildspec-lambda.yml
+version: 0.2
+
+env:
+  variables:
+    # 将来、他の Lambda にも流用できるように、ディレクトリは変数にしとく
+    LAMBDA_DIR: "backend/redmine-api"
+
+    AWS_REGION: "ap-northeast-1"
+
+    # zip を置く S3 バケットとキー
+    ARTIFACT_BUCKET: ""                    # ← CodeBuild の環境変数で上書き推奨
+    LAMBDA_ZIP_KEY: "backend/redmine-api/lambda.zip"
+
+    # CloudFormation の設定
+    STACK_NAME: "taskviewer-redmine-api"
+    TEMPLATE_FILE: "infra/redmine-api-http.yml"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "=== install phase ==="
+      - cd "$LAMBDA_DIR"
+      - npm ci --omit=dev
+  build:
+    commands:
+      - echo "=== build phase ==="
+      - cd "$LAMBDA_DIR"
+      - test -f index.js || (echo "[FATAL] index.js not found" && exit 2)
+      - test -d src || (echo "[FATAL] src/ not found" && exit 3)
+      - rm -f lambda.zip
+      - zip -r lambda.zip index.js src package.json node_modules
+      - ls -lh lambda.zip
+  post_build:
+    commands:
+      - echo "=== post_build phase ==="
+      - 'test -n "${ARTIFACT_BUCKET}" || (echo "[FATAL] ARTIFACT_BUCKET is empty" && exit 4)'
+
+      # S3 に zip をアップ
+      - aws s3 cp "$LAMBDA_DIR/lambda.zip" "s3://${ARTIFACT_BUCKET}/${LAMBDA_ZIP_KEY}" --region "${AWS_REGION}"
+
+      # CloudFormation で Lambda コードを更新
+      # ※ 他のパラメータ（RedmineBaseUrl 等）は既存スタックの値を使う想定
+      - aws cloudformation deploy \
+          --region "${AWS_REGION}" \
+          --stack-name "${STACK_NAME}" \
+          --template-file "${TEMPLATE_FILE}" \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --parameter-overrides \
+            CodeS3Bucket="${ARTIFACT_BUCKET}" \
+            CodeS3Key="${LAMBDA_ZIP_KEY}"
+
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: yes
