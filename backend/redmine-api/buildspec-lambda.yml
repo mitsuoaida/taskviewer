@@ -50,6 +50,7 @@ phases:
       - aws sts get-caller-identity
 
       - echo "== check zip =="
+      - cd "$CODEBUILD_SRC_DIR"
       - ls -lh "${LAMBDA_DIR}/lambda.zip"
 
       - echo "== check bucket access (list) =="
