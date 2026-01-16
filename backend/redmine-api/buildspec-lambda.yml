@@ -22,11 +22,13 @@ phases:
       nodejs: 20
     commands:
       - echo "=== install phase ==="
+      - cd "$CODEBUILD_SRC_DIR"
       - cd "$LAMBDA_DIR"
       - npm ci --omit=dev
   build:
     commands:
       - echo "=== build phase ==="
+      - cd "$CODEBUILD_SRC_DIR"
       - cd "$LAMBDA_DIR"
       - test -f index.js || (echo "[FATAL] index.js not found" && exit 2)
       - test -d src || (echo "[FATAL] src/ not found" && exit 3)
@@ -56,6 +58,7 @@ phases:
       - echo "== upload (verbose) =="
 
       # S3 に zip をアップ
+      - cd "$CODEBUILD_SRC_DIR"
       - aws s3 cp "$LAMBDA_DIR/lambda.zip" "s3://${ARTIFACT_BUCKET}/${LAMBDA_ZIP_KEY}" --region "${AWS_REGION}"
 
       # CloudFormation で Lambda コードを更新
