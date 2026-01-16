@@ -64,14 +64,7 @@ phases:
 
       # CloudFormation で Lambda コードを更新
       # ※ 他のパラメータ（RedmineBaseUrl 等）は既存スタックの値を使う想定
-      - aws cloudformation deploy \
-          --region "${AWS_REGION}" \
-          --stack-name "${STACK_NAME}" \
-          --template-file "${TEMPLATE_FILE}" \
-          --capabilities CAPABILITY_NAMED_IAM \
-          --parameter-overrides \
-            CodeS3Bucket="${ARTIFACT_BUCKET}" \
-            CodeS3Key="${LAMBDA_ZIP_KEY}"
+      - aws cloudformation deploy --region "${AWS_REGION}" --stack-name "${STACK_NAME}" --template-file "${TEMPLATE_FILE}" --capabilities CAPABILITY_NAMED_IAM --parameter-overrides CodeS3Bucket="${ARTIFACT_BUCKET}" CodeS3Key="${LAMBDA_ZIP_KEY}"
 
 artifacts:
   files:
