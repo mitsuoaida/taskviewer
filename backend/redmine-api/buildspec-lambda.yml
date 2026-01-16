@@ -38,6 +38,23 @@ phases:
       - echo "=== post_build phase ==="
       - 'test -n "${ARTIFACT_BUCKET}" || (echo "[FATAL] ARTIFACT_BUCKET is empty" && exit 4)'
 
+      - set -e
+      - echo "AWS_REGION=${AWS_REGION}"
+      - echo "LAMBDA_DIR=${LAMBDA_DIR}"
+      - echo "ARTIFACT_BUCKET=${ARTIFACT_BUCKET}"
+      - echo "LAMBDA_ZIP_KEY=${LAMBDA_ZIP_KEY}"
+
+      - echo "== identity =="
+      - aws sts get-caller-identity
+
+      - echo "== check zip =="
+      - ls -lh "${LAMBDA_DIR}/lambda.zip"
+
+      - echo "== check bucket access (list) =="
+      - aws s3 ls "s3://${ARTIFACT_BUCKET}/" --region "${AWS_REGION}"
+
+      - echo "== upload (verbose) =="
+
       # S3 に zip をアップ
       - aws s3 cp "$LAMBDA_DIR/lambda.zip" "s3://${ARTIFACT_BUCKET}/${LAMBDA_ZIP_KEY}" --region "${AWS_REGION}"
 
