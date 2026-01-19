@@ -59,8 +59,10 @@ phases:
       - echo "== upload (verbose) =="
 
       # S3 に zip をアップ
-      - cd "$CODEBUILD_SRC_DIR"
-      - aws s3 cp "$LAMBDA_DIR/lambda.zip" "s3://${ARTIFACT_BUCKET}/${LAMBDA_ZIP_KEY}" --region "${AWS_REGION}"
+      - export BUILD_ID_SHORT=$(echo "$CODEBUILD_BUILD_ID" | tr ':' '_' | tr '/' '_')
+      - export LAMBDA_ZIP_KEY="backend/redmine-api/lambda-${BUILD_ID_SHORT}.zip"
+      - aws s3 cp "${LAMBDA_DIR}/lambda.zip" "s3://${ARTIFACT_BUCKET}/${LAMBDA_ZIP_KEY}" --region "${AWS_REGION}"
+      - aws cloudformation deploy --region "${AWS_REGION}" --stack-name "${STACK_NAME}" --template-file "${TEMPLATE_FILE}" --capabilities CAPABILITY_NAMED_IAM --parameter-overrides CodeS3Bucket="${ARTIFACT_BUCKET}" CodeS3Key="${LAMBDA_ZIP_KEY}"
 
       # CloudFormation で Lambda コードを更新
       # ※ 他のパラメータ（RedmineBaseUrl 等）は既存スタックの値を使う想定
