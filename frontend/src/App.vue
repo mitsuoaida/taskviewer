@@ -5,6 +5,7 @@ const issues = ref([]);
 const error = ref("");
 const users = ref([]);
 const selectedUserId = ref(null);
+const loading = ref(false);
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
@@ -53,9 +54,11 @@ const fetchUsers = async () => {
 const fetchIssues = async (userId) => {
   if (!userId) {
     issues.value = [];
+    loading.value = false;
     return;
   }
 
+  loading.value = true;
   try {
     const res = await fetch(`${API_BASE}?user_id=${userId}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -64,6 +67,8 @@ const fetchIssues = async (userId) => {
   } catch (e) {
     error.value = e.message;
     issues.value = [];
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -116,8 +121,12 @@ onMounted(async () => {
         ユーザーを選択してください
       </div>
       
-      <div v-else-if="issues.length === 0" class="loading">
+      <div v-else-if="loading" class="loading">
         読み込み中...
+      </div>
+      
+      <div v-else-if="issues.length === 0" class="empty-message">
+        更新されたチケットはありません
       </div>
       
       <div v-else class="issues-container">
@@ -240,6 +249,14 @@ onMounted(async () => {
   padding: 3rem;
   font-size: 1.2rem;
   color: #667eea;
+  font-weight: 600;
+}
+
+.empty-message {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.2rem;
+  color: #718096;
   font-weight: 600;
 }
 
