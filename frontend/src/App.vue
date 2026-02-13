@@ -100,7 +100,7 @@ onMounted(async () => {
             @change="onUserChange"
             class="user-select"
           >
-            <option :value="null">-- 選択してください --</option>
+            <option :value="null">-- ユーザーを選択してください --</option>
             <option 
               v-for="user in users" 
               :key="user.id" 
